@@ -1,0 +1,6 @@
+@tailwind base; @tailwind components; @tailwind utilities;
+
+:root {
+  --color: rgba(255, 80, 80, 1);
+  --colorSecondary: #ff6100;
+}
