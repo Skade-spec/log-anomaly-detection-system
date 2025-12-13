@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: log_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: shproject
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./dump.sql:/docker-entrypoint-initdb.d/dump.sql
+
+  frontend:
+    build: ./log-dashboard
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./server
+    container_name: log_backend
+    restart: always
+    ports:
+      - "3213:3213"
+    environment:
+      PORT: 3213
+      SECRET: very_secret_key
+      DATABASE_URL: postgres://postgres:postgres@host.docker.internal:5432/shproject
+    depends_on:
+      - db
+
+volumes:
+  db_data:
