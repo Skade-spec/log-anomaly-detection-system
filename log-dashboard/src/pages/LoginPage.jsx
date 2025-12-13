@@ -32,6 +32,9 @@ export default function LoginPage({ onLogin }) {
             }
 
             onLogin?.(data);
+            localStorage.setItem('token', data.token);
+            console.log(data);
+            
 
         } catch (error) {
             setErr(error.message || 'Ошибка входа. Проверьте данные.');

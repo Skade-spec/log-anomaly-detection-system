@@ -4,6 +4,8 @@ import dotenv from "dotenv";
 import { db } from './config/db.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { requireRole } from './middlewares/requireRole.js';
+import { auth } from './middlewares/auth.js';
 
 dotenv.config({ path: './config/.env' });
 
@@ -37,11 +39,23 @@ app.post('/login', async (req, res) => {
 
   if (!match) return res.status(401).json({ message: 'Неверный username или пароль' });
 
-  const token = jwt.sign({ id: user.id, username: user.username }, SECRET, { expiresIn: '1h' });
-  res.json({ token, username: user.username });
+  const token = jwt.sign(
+    { 
+      id: user.id, 
+      username: user.username,
+      role: user.role 
+    },
+    SECRET,
+    { expiresIn: '1h' }
+  );
+  res.json({
+    token,
+    username: user.username,
+    role: user.role
+  });
 });
 
-app.get('/logs/anomalies', async (req, res) => {
+app.get('/logs/anomalies', requireRole('security'), async (req, res) => {
     try {
         const pattern = req.query.pattern || '^[a-zA-Z0-9 _:\\-]+$'; 
 
@@ -227,6 +241,67 @@ app.get('/logs/filter', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+app.get('/admin/users', auth, requireRole('admin'), async (req, res) => {
+  const users = await db.query(
+    'SELECT id, username, role, created_at FROM users ORDER BY id'
+  );
+  res.json(users.rows);
+});
+
+app.post('/admin/users', auth, requireRole('admin'), async (req, res) => {
+  const { username, password, role } = req.body;
+
+  if (!username || !password || !role) {
+    return res.status(400).json({ message: 'Missing fields' });
+  }
+
+  const hash = await bcrypt.hash(password, 10);
+
+  await db.query(
+    `INSERT INTO users (username, password_hash, role)
+     VALUES ($1, $2, $3)`,
+    [username, hash, role]
+  );
+
+  res.json({ message: 'User created' });
+});
+
+app.patch('/admin/users/:id/role', auth, requireRole('admin'), async (req, res) => {
+  const { role } = req.body;
+
+  await db.query(
+    'UPDATE users SET role=$1 WHERE id=$2',
+    [role, req.params.id]
+  );
+
+  res.json({ message: 'Role updated' });
+});
+
+app.patch('/admin/users/:id/password', auth, requireRole('admin'), async (req, res) => {
+  const { password } = req.body;
+  const hash = await bcrypt.hash(password, 10);
+
+  await db.query(
+    'UPDATE users SET password_hash=$1 WHERE id=$2',
+    [hash, req.params.id]
+  );
+
+  res.json({ message: 'Password updated' });
+});
+
+app.delete('/admin/users/:id', auth, requireRole('admin'), async (req, res) => {
+  const { id } = req.params;
+
+  if (req.user.id === Number(id)) {
+    return res.status(400).json({ message: "Нельзя удалить себя" });
+  }
+
+  await db.query('DELETE FROM users WHERE id=$1', [id]);
+
+  res.json({ message: 'User deleted' });
+});
+
 
 app.listen(PORT, () => {
     console.log(`Server on port: ${PORT}. http://localhost:${3213}`);

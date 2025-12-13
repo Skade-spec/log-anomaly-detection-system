@@ -29,13 +29,21 @@ const SidebarItem = ({ to, icon, label, badgeCount }) => {
   );
 };
 
-export default function Sidebar() {
+export default function Sidebar({ user }) {
     const anomalyCount = 40; 
     
     return (
       <aside className="bg-gray-900 text-white w-56 min-h-screen pt-4 flex flex-col border-r border-gray-800">
 
         <nav className="flex flex-col gap-1 p-2">
+
+          {user.role === 'admin' && (
+            <SidebarItem
+              to="/admin"
+              icon={<CogIcon className="w-5 h-5" />}
+              label="Админка"
+            />
+          )}
           
           <SidebarItem 
             to="/" 
